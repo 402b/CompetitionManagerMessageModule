@@ -20,6 +20,14 @@ data class Message(
 
     companion object {
 
+        suspend fun setRead(index: Int,uid :Int, read: Boolean = true) = SQLManager.async {
+            val ps = this.prepareStatement("UPDATE Message SET Read = ? WHERE Index = ? AND UID = ?")
+            ps.setBoolean(1, read)
+            ps.setInt(2, index)
+            ps.setInt(3,uid)
+            ps.executeUpdate()
+        }
+
         suspend fun addMessage(uid: Int, data: Configuration) = SQLManager.async {
             val ps = this.prepareStatement("INSERT INTO Message (UID,Data) VALUES (?,?)")
             ps.setInt(1, uid)
@@ -27,18 +35,19 @@ data class Message(
             ps.executeUpdate()
         }
 
-        suspend fun getMessage(uid: Int, read: Boolean = false) = SQLManager.asyncDeferred {
-            val ps = this.prepareStatement("SELECT * FROM Message WHERE UID = ? AND Read = ?")
+        suspend fun getMessage(uid: Int, index:Int) = SQLManager.asyncDeferred {
+            val ps = this.prepareStatement("SELECT * FROM Message WHERE UID = ? AND Index = ?")
             ps.setInt(1, uid)
-            ps.setBoolean(2, read)
+            ps.setInt(2, index)
             val rs = ps.executeQuery()
             val list = mutableListOf<Message>()
-            while (rs.next()) {
-                val index = rs.getInt(1)
+            if (rs.next()) {
                 val json = rs.getString(3)
-                list += Message(index, uid, Configuration(json), read)
+                val read = rs.getBoolean(4)
+                Message(index, uid, Configuration(json), read)
+            }else{
+                null
             }
-            list
         }
 
         suspend fun getMessageIndex(uid: Int, read: Boolean = false) = SQLManager.asyncDeferred {
